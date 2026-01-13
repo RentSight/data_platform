@@ -1,8 +1,3 @@
-Boa pedida — isso é **sinal clássico de projeto maduro**.
-Um README bom **orienta o leitor espacialmente** antes de entrar na teoria. Vamos encaixar isso de forma limpa e profissional.
-
-Abaixo está o **README da camada de dados**, já **com a árvore do projeto integrada**, mantendo o tom de engenharia real (e sem virar manual chato).
-
 ---
 
 # 📊 Data Platform — RentSight
@@ -131,4 +126,4 @@ Este repositório existe para demonstrar, na prática:
 * Arquiteturas analíticas modernas
 * Boas práticas de separação de responsabilidades
 * Construção de pipelines reprodutíveis e escaláveis
-
+---
