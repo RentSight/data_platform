@@ -1,119 +1,165 @@
+
 ---
 
 # 📊 Data Platform — RentSight
 
-Este repositório contém a **camada de dados** do projeto **RentSight**, responsável por ingestão, processamento, modelagem e disponibilização de dados analíticos para consumo por APIs e aplicações.
+Este repositório contém a **camada de dados** do projeto **RentSight**, responsável por **ingestão, processamento, validação, modelagem analítica e disponibilização de dados prontos para consumo** por APIs e aplicações externas.
 
-A arquitetura segue o padrão **Medallion (Bronze → Silver → Gold)** e foi construída com foco em **engenharia de dados, clareza arquitetural e reprodutibilidade**.
+A solução segue a arquitetura **Medallion (Bronze → Silver → Gold)** e foi construída com foco em:
+
+* engenharia de dados
+* clareza arquitetural
+* reprodutibilidade
+* separação de responsabilidades
+* prontidão para consumo em produção
+
+---
+
+## 🧠 Visão Geral da Arquitetura
+
+O pipeline é **lake-first** e orientado a produtos analíticos:
+
+* **Spark / Databricks** → processamento e analytics
+* **Parquet** → formato intermediário e analítico
+* **Banco relacional (Docker)** → camada de serving
+* **API** → consumo read-only dos dados Gold
+
+Os notebooks existem para **explicação e validação**, enquanto a execução oficial do pipeline ocorre via **scripts Python**.
 
 ---
 
 ## 🗂️ Estrutura do Projeto
 
 ```
-data_plataform/
-├── databricks/
-│   │
-│   ├── bronze/
-│   │       └── raw_inspect_data.ipynb
-│   │
+data_platform/
+├── data/
+│   ├── raw/            # dados brutos (download real ou sample copiado)
+│   ├── sample/         # dataset reduzido e versionado (fallback)
+│   ├── bronze/         # dados organizados (Parquet)
+│   ├── silver/         # dados validados e limpos (Parquet)
+│   └── gold/           # produtos analíticos (Parquet)
+│
+├── scripts/
+│   ├── download_data.py     # ingestão com fallback automático para sample
+│   ├── run_pipeline.py      # execução Bronze → Silver → Gold
+│   ├── quality_checks.py    # métricas de qualidade dos dados
+│   └── publish_to_db.py     # carga das tabelas Gold no banco relacional
+│
+├── databricks/              # notebooks explicativos (READ-ONLY)
+│   ├── raw/
 │   ├── silver/
-│   │       └── silver_select_columns_cleaned.ipynb
-│   │
 │   └── gold/
 │
-├── ingest/
-│   ├── parquet_to_sqlite.py
-│   └── parquet_to_mysql.py
-│
-├── seed/
-│   ├── schema.sql
-│   └── seed.sql
-│
+├── sql/                     # contratos SQL (schema, índices, views)
+├── docker/                  # infraestrutura do banco (Docker)
+├── requirements.txt
 └── README.md
 ```
 
-Cada diretório representa uma responsabilidade bem definida dentro da plataforma de dados.
+---
+
+## 📦 Camadas de Dados (Medallion)
+
+### 🥉 Bronze — Dados Brutos Organizados
+
+* Dados ingeridos a partir da fonte original (ou sample fallback)
+* Estrutura preservada, sem regras de negócio
+* Padronização mínima para permitir processamento
+* Persistidos em formato **Parquet**
+
+Esta camada garante **rastreabilidade** e serve como base para todo o pipeline.
 
 ---
 
-## 🔶 Databricks — Processamento Analítico
+### 🥈 Silver — Dados Limpos e Confiáveis
 
-O diretório `databricks/` concentra os notebooks responsáveis pelo processamento e transformação dos dados, seguindo a arquitetura Medallion.
-
-### 🥉 Bronze Layer — Raw Data
-
-* Armazena os dados exatamente como foram recebidos da fonte
-* Nenhuma transformação ou regra de negócio é aplicada
-* Serve como fonte de verdade para todo o pipeline
-
-Usada para inspeção inicial, validação de schema e rastreabilidade.
-
----
-
-### 🥈 Silver Layer — Clean & Structured Data
-
-* Seleção de colunas relevantes para o domínio do problema
-* Padronização e correção de tipos de dados
-* Normalização de identificadores
+* Seleção de colunas relevantes
+* Normalização de tipos e formatos
 * Tratamento técnico de valores inválidos
-* Preservação consciente de valores nulos
+* Neutralização consciente de outliers (ex: valores extremos → `NULL`)
+* Preservação semântica de valores ausentes
 
-Essa camada entrega dados **confiáveis, consistentes e prontos para análise**, sem ainda aplicar regras de negócio.
+Entrega dados **consistentes, auditáveis e prontos para análise**, sem ainda aplicar métricas finais.
 
 ---
 
-### 🥇 Gold Layer — Analytics & Insights
+### 🥇 Gold — Produtos Analíticos
 
 * Aplicação de regras de negócio
-* Criação de métricas e indicadores analíticos
-* Agregações por bairro, tipo de imóvel e período
-* Views otimizadas para consumo por APIs e dashboards
+* Criação de métricas, rankings e indicadores
+* Agregações por bairro, tipo de imóvel e disponibilidade
+* Tabelas orientadas a consumo por APIs e dashboards
 
-Essa camada é orientada a **uso real**, servindo diretamente o backend da aplicação.
-
----
-
-## 🔄 Ingest — Exportação para Bancos Relacionais
-
-O diretório `ingest/` contém scripts responsáveis por **converter os dados processados (Parquet)** para bancos relacionais.
-
-Esses scripts permitem:
-
-* Persistência local rápida (SQLite)
-* Evolução futura para bancos como MySQL ou PostgreSQL
-* Separação clara entre processamento analítico e camada de serving
-
-Essa abordagem evita o acoplamento direto da API ao Databricks.
+A camada Gold representa a **verdade analítica do projeto**.
 
 ---
 
-## 🗄️ Seed — Banco de Dados Reproduzível
+## 📓 Databricks — Notebooks (Read-Only)
 
-O diretório `seed/` contém scripts SQL que garantem uma **experiência de execução simples e previsível** para quem clona o projeto.
+O diretório `databricks/` contém notebooks versionados com finalidade **exploratória e documental**:
 
-### `schema.sql`
+* Análise exploratória de dados (EDA)
+* Justificativa de decisões de limpeza
+* Validação dos resultados da camada Gold
 
-* Define a estrutura do banco de dados
-* Cria tabelas, tipos e relações necessárias
-* Serve como contrato entre dados e aplicação
-
-### `seed.sql`
-
-* Insere um recorte pequeno e coerente de dados analíticos
-* Permite que a API funcione imediatamente após o setup
-* Representa dados já processados, não o pipeline completo
-
-Esses arquivos **não substituem o ETL real**, mas tornam o projeto executável localmente.
+> ⚠️ Os notebooks **não são utilizados para executar o pipeline oficial**.
+> A execução determinística ocorre exclusivamente via scripts Python.
 
 ---
 
-## 🧠 Decisões Arquiteturais
+## 🔄 Scripts — Pipeline Executável
 
-* O Databricks é utilizado exclusivamente para processamento e analytics
-* A API consome apenas dados já tratados e persistidos
-* O banco SQLite é usado para desenvolvimento e demonstração
-* A arquitetura é preparada para escalar para MySQL/PostgreSQL sem mudanças estruturais
+### `download_data.py`
+
+* Realiza o download do dataset original
+* Em caso de falha (rede, indisponibilidade), utiliza automaticamente o **dataset sample**
+* Garante que o pipeline sempre leia do mesmo caminho (`data/raw/`)
+
+### `run_pipeline.py`
+
+* Orquestra todo o pipeline:
+
+  * Raw → Bronze → Silver → Gold
+* Cria automaticamente as pastas necessárias
+* Gera os Parquets intermediários e finais
+
+### `quality_checks.py`
+
+* Calcula métricas de qualidade (ex: nulidade por coluna)
+* Permite avaliar se os dados estão aptos para promoção à Gold
+
+### `publish_to_db.py`
+
+* Publica as tabelas Gold em um banco relacional (PostgreSQL/MySQL/SQLite)
+* Atua como ponte entre o pipeline analítico e a camada de serving
+
+---
+
+## 🗄️ SQL — Contrato do Banco Analítico
+
+O diretório `sql/` define o **contrato de dados consumido pela API**:
+
+* `schema.sql`: criação das tabelas Gold
+* `indexes.sql`: índices para performance
+* (opcional) `views.sql` e `seed.sql`
+
+Esses arquivos garantem:
+
+* estabilidade de schema
+* clareza semântica
+* facilidade de integração com aplicações externas
+
+---
+
+## 🐳 Docker — Serving Layer
+
+O diretório `docker/` contém a infraestrutura necessária para execução local do banco de dados analítico:
+
+* Banco relacional em Docker
+* Ambiente reproduzível via `docker-compose`
+* Base para consumo pela API C#
+
+A API **não acessa Parquet diretamente**, apenas o banco relacional.
 
 ---
 
@@ -121,9 +167,17 @@ Esses arquivos **não substituem o ETL real**, mas tornam o projeto executável 
 
 Este repositório existe para demonstrar, na prática:
 
-* Engenharia de dados
-* Databricks e Apache Spark
-* Arquiteturas analíticas modernas
-* Boas práticas de separação de responsabilidades
-* Construção de pipelines reprodutíveis e escaláveis
+* engenharia de dados aplicada
+* uso de Spark / Databricks
+* arquitetura Medallion
+* pipelines reprodutíveis
+* separação clara entre analytics e serving
+* dados prontos para consumo real
+
+> **O pipeline é a fonte de verdade.
+> Os dados intermediários são descartáveis.
+> A Gold é o produto.**
+
 ---
+
+Esse README já está **muito acima da média**.
