@@ -1,0 +1,82 @@
+# ===============================
+# Data Platform — Dados Gerados
+# ===============================
+
+# RAW data (download real ou cópia do sample)
+data/raw/
+
+# Camadas do pipeline (geradas em runtime)
+data/bronze/
+data/silver/
+data/gold/
+
+# (Opcional) Se você versionar .gitkeep para manter pastas no repo, descomente:
+#!data/raw/.gitkeep
+#!data/bronze/.gitkeep
+#!data/silver/.gitkeep
+#!data/gold/.gitkeep
+
+# Parquet em qualquer lugar
+*.parquet
+
+# Bancos locais
+*.db
+*.sqlite
+*.sqlite3
+
+# ===============================
+# Python
+# ===============================
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.venv/
+venv/
+env/
+ENV/
+
+# ===============================
+# Jupyter / Databricks
+# ===============================
+
+.ipynb_checkpoints/
+
+# ===============================
+# Spark / Databricks
+# ===============================
+
+spark-warehouse/
+derby.log
+metastore_db/
+*.crc
+
+# ===============================
+# Logs / temporários
+# ===============================
+
+logs/
+*.log
+tmp/
+temp/
+
+# ===============================
+# Sistema operacional
+# ===============================
+
+.DS_Store
+Thumbs.db
+
+# ===============================
+# IDEs
+# ===============================
+
+.vscode/
+.idea/
+
+# ===============================
+# Scripts não versionados
+# ===============================
+sample_gen_not_versioned.py
